@@ -1,7 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
+import googleCalendarReducer from './google-calendar-slice'
 
 export const store = configureStore({
-  reducer: {},
+  reducer: { googleCalendar: googleCalendarReducer },
 })
 
 export type RootState = ReturnType<typeof store.getState>

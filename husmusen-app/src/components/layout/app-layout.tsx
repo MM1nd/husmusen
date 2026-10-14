@@ -1,5 +1,6 @@
 import { Outlet } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { Toaster } from '@/components/ui/sonner'
 
 export function AppLayout() {
     useEffect(() => {
@@ -17,6 +18,7 @@ export function AppLayout() {
 
     return (
         <main className="mx-auto min-h-svh max-w-300 px-4 py-8 sm:px-6 sm:py-12">
+            <Toaster />
             <Outlet />
         </main>
     )

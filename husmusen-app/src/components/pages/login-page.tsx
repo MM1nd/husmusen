@@ -1,17 +1,14 @@
-import { useGoogleSignInButton } from '@/lib/google-identity'
+import { GoogleSignInButton } from '@/components/google-sign-in-button'
+import { GoogleCalendarConnectButton } from '@/components/google-calendar-connect-button'
 
 export function LoginPage() {
-    const { buttonRef, loadError } = useGoogleSignInButton()
-
     return (
         <section className="space-y-6">
             <h1 className="font-heading text-3xl font-medium tracking-wide uppercase sm:text-4xl">
                 Sign in to Husmusen
             </h1>
-            <div ref={buttonRef} />
-            {loadError && (
-                <p role="alert">Google sign-in could not load. Please reload to try again.</p>
-            )}
+            <GoogleSignInButton />
+            <GoogleCalendarConnectButton />
         </section>
     )
 }

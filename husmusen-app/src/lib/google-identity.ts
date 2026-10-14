@@ -1,4 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
+import { store } from '@/app/store'
+import {
+    calendarConnectionSucceeded,
+    calendarConnectionFailed,
+} from '@/app/google-calendar-slice'
+
+const googleServicesLoadToastId = 'google-services-load'
+const calendarScope = 'https://www.googleapis.com/auth/calendar.readonly'
+const authorizationErrorId = 'google-calendar-authorization'
 
 type GoogleIdentity = {
     initialize: (options: {
@@ -7,82 +16,137 @@ type GoogleIdentity = {
     }) => void
     renderButton: (
         element: HTMLElement,
-        options: { theme: 'outline'; size: 'large' },
+        options: {
+            theme: 'outline' | 'filled_black'
+            size: 'large'
+            shape?: 'rectangular'
+        },
     ) => void
 }
 
-let identityPromise: Promise<GoogleIdentity> | undefined
-let initialized = false
+type CalendarTokenResponse = {
+    access_token?: string
+    expires_in?: number
+    scope?: string
+    error?: string
+}
 
-function loadGoogleIdentityServices(): Promise<GoogleIdentity> {
-    if (identityPromise) return identityPromise
+export type CalendarTokenClient = {
+    requestAccessToken: () => void
+}
+
+type GoogleAccounts = {
+    id: GoogleIdentity
+    oauth2: {
+        initTokenClient: (options: {
+            client_id: string
+            scope: string
+            callback: (response: CalendarTokenResponse) => void
+            error_callback: (error: { type: string }) => void
+        }) => CalendarTokenClient
+        hasGrantedAllScopes: (response: CalendarTokenResponse, scope: string) => boolean
+    }
+}
+
+
+
+let googleAccountsPromise: Promise<GoogleAccounts> | undefined
+let calendarTokenClientPromise: Promise<CalendarTokenClient> | undefined
+
+export function loadGoogleIdentityServices(): Promise<GoogleAccounts> {
+    if (googleAccountsPromise) return googleAccountsPromise
 
     const googleWindow = window as Window & {
-        google?: { accounts: { id: GoogleIdentity } }
+        google?: { accounts: GoogleAccounts }
     }
 
-    identityPromise = new Promise((resolve, reject) => {
-        const identity = googleWindow.google?.accounts.id
+    googleAccountsPromise = new Promise<GoogleAccounts>((resolve, reject) => {
+        function _resolve(accounts: GoogleAccounts) {
+            toast.dismiss(googleServicesLoadToastId)
+            resolve(accounts)
+        }
+
+        const identity = googleWindow.google?.accounts
         if (identity) {
-            resolve(identity)
+            _resolve(identity)
             return
         }
 
         const script = document.createElement('script')
+
+        function _reject(message: string) {
+            script.remove()
+            const error = new Error(message)
+            console.error(error)
+            toast.error(error.message, {
+                id: googleServicesLoadToastId,
+                description: 'Refresh the page to try again.',
+                duration: Infinity,
+                action: {
+                    label: 'Refresh',
+                    onClick: () => window.location.reload(),
+                },
+            })
+            reject(error)
+        }
+
         script.src = 'https://accounts.google.com/gsi/client'
         script.async = true
         script.onload = () => {
-            script.onload = null
-            script.onerror = null
-            const loadedIdentity = googleWindow.google?.accounts.id
+            const loadedIdentity = googleWindow.google?.accounts
             if (loadedIdentity) {
-                resolve(loadedIdentity)
+                script.onload = null
+                script.onerror = null
+                _resolve(loadedIdentity)
             } else {
-                reject(new Error('Google Identity Services API is unavailable.'))
+                _reject('Google Identity Services API is unavailable.')
             }
         }
         script.onerror = () => {
-            script.onload = null
-            script.onerror = null
-            reject(new Error('Google Identity Services failed to load.'))
+            _reject('Google Identity Services failed to load.')
         }
         document.head.appendChild(script)
     })
 
-    return identityPromise
+    return googleAccountsPromise
 }
 
-export function useGoogleSignInButton() {
-    const buttonRef = useRef<HTMLDivElement>(null)
-    const [loadError, setLoadError] = useState(false)
+export function initializeGoogleCalendarAuthorization(): Promise<CalendarTokenClient> {
+    // Share initialization across components, remounts, and Strict Mode effects.
+    calendarTokenClientPromise ??= loadGoogleIdentityServices().then((accounts) => {
+        return accounts.oauth2.initTokenClient({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+            scope: calendarScope,
+            callback: (response) => {
+                if (response.error || !response.access_token || !response.expires_in ||
+                    !accounts.oauth2.hasGrantedAllScopes(response, calendarScope)) {
+                    const message = 'Google Calendar permission was not granted. Please try again.'
+                    console.error('Google Calendar authorization failed', response.error ?? message)
+                    store.dispatch(calendarConnectionFailed())
+                    toast.error(message, { id: authorizationErrorId })
+                    return
+                }
 
-    useEffect(() => {
-        const container = buttonRef.current!
-        let active = true
-
-        loadGoogleIdentityServices().then((identity) => {
-            if (!active) return
-
-            if (!initialized) {
-                identity.initialize({
-                    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-                    callback: () => {
-                        // TODO: Handle response.credential when session state is implemented.
-                    },
-                })
-                initialized = true
-            }
-
-            identity.renderButton(container, { theme: 'outline', size: 'large' })
-        }).catch(() => {
-            if (active) setLoadError(true)
+                store.dispatch(calendarConnectionSucceeded({
+                    accessToken: response.access_token,
+                    receivedAt: Date.now(),
+                    expiresInSeconds: response.expires_in,
+                }))
+            },
+            error_callback: (popupError) => {
+                const message = popupError.type === 'popup_closed'
+                    ? 'Google Calendar connection was cancelled.'
+                    : 'Google Calendar authorization could not open. Please try again.'
+                console.error('Google Calendar authorization failed', popupError.type ?? message)
+                store.dispatch(calendarConnectionFailed())
+                if (popupError.type === 'popup_closed') {
+                    toast.info(message, { id: authorizationErrorId })
+                } else {
+                    toast.error(message, { id: authorizationErrorId })
+                }
+            },
         })
+    })
 
-        return () => {
-            active = false
-            container.replaceChildren()
-        }
-    }, [])
-
-    return { buttonRef, loadError }
+    return calendarTokenClientPromise
 }
