@@ -1,6 +1,7 @@
 import { EventCalendarDemo } from '@/components/event-calendar-demo'
 import { GoogleCalendarConnectButton } from '@/components/google-calendar-connect-button'
 import { GoogleCalendarList } from '@/components/google-calendar-list'
+import { GoogleRememberedAccount } from '@/components/google-remembered-account'
 import { PageHeading } from '@/components/page-heading'
 import { Section } from '@/components/section'
 
@@ -10,6 +11,7 @@ export function DemoPage() {
             <PageHeading title="Demo" />
             <Section heading="Google Calendar connection">
                 <GoogleCalendarConnectButton />
+                <GoogleRememberedAccount />
                 <GoogleCalendarList />
             </Section>
             <Section heading="Calendar">

@@ -1,12 +1,9 @@
 import { toast } from 'sonner'
-import { store } from '@/app/store'
-import {
-    calendarConnectionSucceeded,
-    calendarConnectionFailed,
-} from '@/app/google-calendar-slice'
+import { useGoogleCalendarStore } from '@/app/google-calendar-store'
 
 const googleServicesLoadToastId = 'google-services-load'
 const calendarScope = 'https://www.googleapis.com/auth/calendar.readonly'
+const emailScope = 'https://www.googleapis.com/auth/userinfo.email'
 const authorizationErrorId = 'google-calendar-authorization'
 
 type GoogleIdentity = {
@@ -32,7 +29,7 @@ type CalendarTokenResponse = {
 }
 
 export type CalendarTokenClient = {
-    requestAccessToken: () => void
+    requestAccessToken: (options?: { login_hint?: string; prompt?: string }) => void
 }
 
 type GoogleAccounts = {
@@ -116,29 +113,37 @@ export function initializeGoogleCalendarAuthorization(): Promise<CalendarTokenCl
     calendarTokenClientPromise ??= loadGoogleIdentityServices().then((accounts) => {
         return accounts.oauth2.initTokenClient({
             client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-            scope: calendarScope,
+            scope: `${calendarScope} ${emailScope}`,
             callback: (response) => {
                 if (response.error || !response.access_token || !response.expires_in ||
                     !accounts.oauth2.hasGrantedAllScopes(response, calendarScope)) {
                     const message = 'Google Calendar permission was not granted. Please try again.'
                     console.error('Google Calendar authorization failed', response.error ?? message)
-                    store.dispatch(calendarConnectionFailed())
+                    useGoogleCalendarStore.getState().calendarConnectionFailed()
                     toast.error(message, { id: authorizationErrorId })
                     return
                 }
 
-                store.dispatch(calendarConnectionSucceeded({
+                const authorization = {
                     accessToken: response.access_token,
                     receivedAt: Date.now(),
                     expiresInSeconds: response.expires_in,
-                }))
+                }
+                useGoogleCalendarStore.getState().calendarConnectionSucceeded(authorization)
+                if (accounts.oauth2.hasGrantedAllScopes(response, emailScope)) {
+                    void rememberGoogleAccountEmail(authorization.accessToken)
+                } else {
+                    const message = 'Google account email permission was not granted.'
+                    console.warn(message)
+                    toast.warning(message)
+                }
             },
             error_callback: (popupError) => {
                 const message = popupError.type === 'popup_closed'
                     ? 'Google Calendar connection was cancelled.'
                     : 'Google Calendar authorization could not open. Please try again.'
                 console.error('Google Calendar authorization failed', popupError.type ?? message)
-                store.dispatch(calendarConnectionFailed())
+                useGoogleCalendarStore.getState().calendarConnectionFailed()
                 if (popupError.type === 'popup_closed') {
                     toast.info(message, { id: authorizationErrorId })
                 } else {
@@ -149,4 +154,36 @@ export function initializeGoogleCalendarAuthorization(): Promise<CalendarTokenCl
     })
 
     return calendarTokenClientPromise
+}
+
+async function rememberGoogleAccountEmail(accessToken: string): Promise<void> {
+    try {
+        const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!response.ok) {
+            const message = `Could not retrieve the Google account email (HTTP ${response.status}).`
+            console.warn(message)
+            toast.warning(message)
+            return
+        }
+        const user: { email?: unknown } = await response.json()
+        if (typeof user.email !== 'string' || !user.email.trim()) {
+            const message = 'Google returned a missing or invalid account email.'
+            console.warn(message)
+            toast.warning(message)
+            return
+        }
+
+        // A delayed lookup must not overwrite the email for a newer authorization.
+        const store = useGoogleCalendarStore.getState()
+        if (store.authorization?.accessToken === accessToken) {
+            store.setAccountEmail(user.email)
+        }
+    } catch (error) {
+        const message = 'Could not request or read the Google account email response.'
+        console.warn(message, error)
+        toast.warning(message)
+        return
+    }
 }

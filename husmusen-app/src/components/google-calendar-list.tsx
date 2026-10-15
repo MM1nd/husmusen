@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useAppSelector } from '@/app/hooks'
-import type { CalendarAuthorization } from '@/app/google-calendar-slice'
+import { useGoogleCalendarStore } from '@/app/google-calendar-store'
+import type { CalendarAuthorization } from '@/app/google-calendar-store'
 import { fetchGoogleCalendars } from '@/lib/google-calendar'
 import type { GoogleCalendar } from '@/lib/google-calendar'
 
@@ -10,7 +10,7 @@ type CalendarListState =
     | { status: 'error'; message: string }
 
 export function GoogleCalendarList() {
-    const authorization = useAppSelector((state) => state.googleCalendar.authorization)
+    const authorization = useGoogleCalendarStore((state) => state.authorization)
 
     if (!authorization) {
         return <p className="text-sm text-muted-foreground">Connect Google Calendar to see available calendars.</p>

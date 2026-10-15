@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check, Hourglass, LoaderCircle } from 'lucide-react'
-import { useAppSelector } from '@/app/hooks'
-import { store } from '@/app/store'
-import { calendarConnectionStarted } from '@/app/google-calendar-slice'
+import { useGoogleCalendarStore } from '@/app/google-calendar-store'
 import { Button } from '@/components/ui/button'
 import { initializeGoogleCalendarAuthorization } from '@/lib/google-identity'
 import type { CalendarTokenClient } from '@/lib/google-identity'
@@ -10,15 +8,18 @@ import type { CalendarTokenClient } from '@/lib/google-identity'
 const renewalWindowMs = 5 * 60 * 1000
 
 export function GoogleCalendarConnectButton() {
-    const calendar = useAppSelector((state) => state.googleCalendar)
+    const requestStatus = useGoogleCalendarStore((state) => state.requestStatus)
+    const authorization = useGoogleCalendarStore((state) => state.authorization)
+    const accountEmail = useGoogleCalendarStore((state) => state.accountEmail)
+    const calendarConnectionStarted = useGoogleCalendarStore((state) => state.calendarConnectionStarted)
     const [initialization, setInitialization] = useState<
         | { status: 'loading' }
         | { status: 'ready'; client: CalendarTokenClient }
         | { status: 'error' }
     >({ status: 'loading' })
     const [now, setNow] = useState(Date.now)
-    const expiresInMs = calendar.authorization
-        ? calendar.authorization.expiresInSeconds * 1000 - (now - calendar.authorization.receivedAt) : 0
+    const expiresInMs = authorization
+        ? authorization.expiresInSeconds * 1000 - (now - authorization.receivedAt) : 0
     const tokenIsValid = expiresInMs > 0
     const tokenHasEnoughLifetime = expiresInMs > renewalWindowMs
 
@@ -51,13 +52,15 @@ export function GoogleCalendarConnectButton() {
     let connect: (() => void) | undefined
     if (initialization.status === 'ready') {
         connect = () => {
-            store.dispatch(calendarConnectionStarted())
+            calendarConnectionStarted()
             // Keep this synchronous so the popup opens directly from the button click.
-            initialization.client.requestAccessToken()
+            initialization.client.requestAccessToken(accountEmail
+                ? { login_hint: accountEmail, prompt: '' }
+                : { prompt: 'select_account' })
         }
     }
 
-    if (calendar.requestStatus === 'pending') {
+    if (requestStatus === 'pending') {
         // Token pending.
         return (
             <div className="w-80 max-w-full space-y-3" aria-busy>
@@ -67,7 +70,7 @@ export function GoogleCalendarConnectButton() {
                 </Button>
             </div>
         )
-    } else if (calendar.requestStatus === 'failed') {
+    } else if (requestStatus === 'failed') {
         // Error obtaining the token.
         return (
             <div className="w-80 max-w-full space-y-3">

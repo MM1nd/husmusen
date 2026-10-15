@@ -1,4 +1,4 @@
-import type { CalendarAuthorization } from '@/app/google-calendar-slice'
+import type { CalendarAuthorization } from '@/app/google-calendar-store'
 
 export type GoogleCalendar = {
     id: string
