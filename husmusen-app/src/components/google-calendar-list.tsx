@@ -63,7 +63,7 @@ function AuthorizedCalendarList({ authorization }: { authorization: CalendarAuth
                         className="size-3 shrink-0 rounded-full border bg-muted"
                         style={{ backgroundColor: calendar.backgroundColor }}
                     />
-                    <span className="min-w-0 break-words">
+                    <span className="min-w-0 wrap-break-word">
                         {calendar.summaryOverride || calendar.summary || calendar.id}
                     </span>
                     {calendar.primary && <span className="ml-auto text-xs text-muted-foreground">Primary</span>}
