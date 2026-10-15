@@ -80,41 +80,43 @@ function CalendarConnectDisplay({ requestStatus, initializationStatus, tokenIsVa
     connect?: () => void
 }) {
     let text: string
-    let Icon: LucideIcon | undefined
-    let iconClassName = 'size-4 shrink-0'
-    let isBusy = false
+    const isBusy = requestStatus === 'pending' || initializationStatus === 'loading'
     let isActive = false
     const disabled = initializationStatus !== 'ready' || requestStatus === 'pending'
 
     if (requestStatus === 'pending') {
         text = 'Requesting calendar access'
-        Icon = LoaderCircle
-        iconClassName = 'size-4 shrink-0 animate-spin motion-reduce:animate-none'
-        isBusy = true
     } else if (requestStatus === 'failed') {
         text = 'Retry requesting calendar access'
     } else if (tokenHasEnoughLifetime) {
         // Active access, including while the client initializes in the background.
         text = 'Google Calendar access active'
-        Icon = Check
         isActive = true
     } else if (tokenIsValid) {
         text = 'Renew calendar access'
-        Icon = Hourglass
     } else if (initializationStatus === 'loading') {
         text = 'Preparing calendar access'
-        Icon = LoaderCircle
-        iconClassName = 'size-4 shrink-0 animate-spin motion-reduce:animate-none'
-        isBusy = true
     } else if (initializationStatus === 'error') {
         text = 'Calendar unavailable'
     } else {
         text = 'Request calendar access'
     }
 
+    let Icon: LucideIcon | undefined
+    if (isBusy) {
+        Icon = LoaderCircle
+    } else if (isActive) {
+        Icon = Check
+    } else if (tokenIsValid) {
+        Icon = Hourglass
+    }
+    const iconClassName = isBusy
+        ? 'size-4 shrink-0 animate-spin motion-reduce:animate-none'
+        : 'size-4 shrink-0'
+
     if (isActive) {
         return (
-            <div className="w-80 max-w-full space-y-3">
+            <div className="w-80 max-w-full space-y-3" aria-busy={isBusy || undefined}>
                 <div className="flex min-h-10 items-center justify-center gap-2 border border-emerald-600/40 px-3 text-sm text-emerald-700 dark:text-emerald-400">
                     {Icon && <Icon className={iconClassName} aria-hidden="true" />}
                     <span role="status">{text}</span>
