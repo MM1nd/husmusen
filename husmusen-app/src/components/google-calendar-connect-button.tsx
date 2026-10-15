@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Check, Hourglass, LoaderCircle } from 'lucide-react'
+import { Check, Hourglass, LoaderCircle, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useGoogleCalendarStore } from '@/app/google-calendar-store'
 import { Button } from '@/components/ui/button'
 import { initializeGoogleCalendarAuthorization } from '@/lib/google-identity'
 import type { CalendarTokenClient } from '@/lib/google-identity'
 
-const renewalWindowMs = 5 * 60 * 1000
+const minuteMs = 60 * 1000
+const renewalWindowMs = 5 * minuteMs
 
 export function GoogleCalendarConnectButton() {
     const requestStatus = useGoogleCalendarStore((state) => state.requestStatus)
@@ -35,20 +36,16 @@ export function GoogleCalendarConnectButton() {
     }, [])
 
     useEffect(() => {
+        if (!tokenIsValid) return
+
         const refresh = () => setNow(Date.now())
         window.addEventListener('focus', refresh)
-        let timeout: number | undefined
-        if (tokenIsValid) {
-            // Re-render when renewal becomes available, then when access expires.
-            const nextChangeInMs = tokenHasEnoughLifetime
-                ? expiresInMs - renewalWindowMs : expiresInMs
-            timeout = window.setTimeout(refresh, Math.max(0, nextChangeInMs - (Date.now() - now)))
-        }
+        const timeout = window.setTimeout(refresh, Math.min(minuteMs, expiresInMs))
         return () => {
             window.clearTimeout(timeout)
             window.removeEventListener('focus', refresh)
         }
-    }, [expiresInMs, now, tokenIsValid, tokenHasEnoughLifetime])
+    }, [expiresInMs, now, tokenIsValid])
 
     let connect: (() => void) | undefined
     if (initialization.status === 'ready') {
@@ -62,36 +59,57 @@ export function GoogleCalendarConnectButton() {
     }
 
     return (
-        <CalendarConnectDisplay
-            requestStatus={requestStatus}
-            initializationStatus={initialization.status}
-            tokenIsValid={tokenIsValid}
-            tokenHasEnoughLifetime={tokenHasEnoughLifetime}
-            connect={connect}
-        />
+        <div className="w-80 max-w-full space-y-3">
+            <CalendarConnectDisplay
+                requestStatus={requestStatus}
+                initializationStatus={initialization.status}
+                tokenIsValid={tokenIsValid}
+                tokenHasEnoughLifetime={tokenHasEnoughLifetime}
+                expiresInMs={expiresInMs}
+                connect={connect}
+            />
+            <CalendarAccessStatus tokenIsValid={tokenIsValid} />
+        </div>
     )
 }
 
-function CalendarConnectDisplay({ requestStatus, initializationStatus, tokenIsValid, tokenHasEnoughLifetime, connect }: {
+function CalendarAccessStatus({ tokenIsValid }: { tokenIsValid: boolean }) {
+    if (tokenIsValid) {
+        return (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+                <Check className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                <span>Google Calendar access active</span>
+            </p>
+        )
+    } else {
+        return (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+                <X className="size-4 shrink-0 text-destructive" aria-hidden="true" />
+                <span>Google Calendar access inactive</span>
+            </p>
+        )
+    }
+}
+
+function CalendarConnectDisplay({ requestStatus, initializationStatus, tokenIsValid, tokenHasEnoughLifetime, expiresInMs, connect }: {
     requestStatus: 'idle' | 'pending' | 'failed'
     initializationStatus: 'loading' | 'ready' | 'error'
     tokenIsValid: boolean
     tokenHasEnoughLifetime: boolean
+    expiresInMs: number
     connect?: () => void
 }) {
     let text: string
-    const isBusy = requestStatus === 'pending' || initializationStatus === 'loading'
-    let isActive = false
-    const disabled = initializationStatus !== 'ready' || requestStatus === 'pending'
+    const isBusy = !tokenHasEnoughLifetime && (requestStatus === 'pending' || initializationStatus === 'loading')
+    const disabled = tokenHasEnoughLifetime || initializationStatus !== 'ready' || requestStatus === 'pending'
 
-    if (requestStatus === 'pending') {
+    if (tokenHasEnoughLifetime) {
+        // Show the countdown even while the client initializes in the background.
+        text = `Access expires in ${Math.ceil(expiresInMs / minuteMs)} min`
+    } else if (requestStatus === 'pending') {
         text = 'Requesting calendar access'
     } else if (requestStatus === 'failed') {
         text = 'Retry requesting calendar access'
-    } else if (tokenHasEnoughLifetime) {
-        // Active access, including while the client initializes in the background.
-        text = 'Google Calendar access active'
-        isActive = true
     } else if (tokenIsValid) {
         text = 'Renew calendar access'
     } else if (initializationStatus === 'loading') {
@@ -105,8 +123,6 @@ function CalendarConnectDisplay({ requestStatus, initializationStatus, tokenIsVa
     let Icon: LucideIcon | undefined
     if (isBusy) {
         Icon = LoaderCircle
-    } else if (isActive) {
-        Icon = Check
     } else if (tokenIsValid) {
         Icon = Hourglass
     }
@@ -114,28 +130,16 @@ function CalendarConnectDisplay({ requestStatus, initializationStatus, tokenIsVa
         ? 'size-4 shrink-0 animate-spin motion-reduce:animate-none'
         : 'size-4 shrink-0'
 
-    if (isActive) {
-        return (
-            <div className="w-80 max-w-full space-y-3" aria-busy={isBusy || undefined}>
-                <div className="flex min-h-10 items-center justify-center gap-2 border border-emerald-600/40 px-3 text-sm text-emerald-700 dark:text-emerald-400">
-                    {Icon && <Icon className={iconClassName} aria-hidden="true" />}
-                    <span role="status">{text}</span>
-                </div>
-            </div>
-        )
-    } else {
-        return (
-            <div className="w-80 max-w-full space-y-3" aria-busy={isBusy || undefined}>
-                <Button
-                    variant="outline"
-                    className="w-full enabled:cursor-pointer enabled:hover:border-primary enabled:hover:bg-primary enabled:hover:text-primary-foreground"
-                    onClick={connect}
-                    disabled={disabled}
-                >
-                    {Icon && <Icon className={iconClassName} aria-hidden="true" />}
-                    <span role="status">{text}</span>
-                </Button>
-            </div>
-        )
-    }
+    return (
+        <Button
+            variant="outline"
+            className="w-full enabled:cursor-pointer enabled:hover:border-primary enabled:hover:bg-primary enabled:hover:text-primary-foreground"
+            onClick={connect}
+            disabled={disabled}
+            aria-busy={isBusy || undefined}
+        >
+            {Icon && <Icon className={iconClassName} aria-hidden="true" />}
+            <span>{text}</span>
+        </Button>
+    )
 }
