@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { LoaderCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { loadGoogleIdentityServices } from '@/lib/google-identity'
 
 let initialized = false
@@ -47,10 +48,11 @@ export function GoogleSignInButton() {
     return (
         <div className="min-h-10 w-80 max-w-full" aria-busy={status === 'loading'}>
             {status !== 'ready' && (
-                <button
+                <Button
                     type="button"
+                    variant="outline"
                     disabled
-                    className="flex h-10 w-full items-center justify-center gap-2 rounded border border-[#747775] bg-white px-3 text-sm font-medium text-[#1f1f1f] dark:border-[#202124] dark:bg-[#202124] dark:text-white"
+                    className="h-10 w-full gap-2 rounded border-[#747775] bg-white px-3 text-sm font-medium tracking-normal normal-case text-[#1f1f1f] disabled:opacity-100 dark:border-[#202124] dark:bg-[#202124] dark:text-white"
                 >
                     {status === 'loading' && (
                         <>
@@ -61,7 +63,7 @@ export function GoogleSignInButton() {
                     {status === 'error' && (
                         <span role="status">Google sign-in unavailable</span>
                     )}
-                </button>
+                </Button>
             )}
             <div ref={buttonRef} hidden={status !== 'ready'} />
         </div>
