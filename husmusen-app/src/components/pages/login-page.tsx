@@ -1,14 +1,14 @@
 import { GoogleSignInButton } from '@/components/google-sign-in-button'
-import { GoogleCalendarConnectButton } from '@/components/google-calendar-connect-button'
+import { PageHeading } from '@/components/page-heading'
+import { Section } from '@/components/section'
 
 export function LoginPage() {
     return (
-        <section className="space-y-6">
-            <h1 className="font-heading text-3xl font-medium tracking-wide uppercase sm:text-4xl">
-                Sign in to Husmusen
-            </h1>
-            <GoogleSignInButton />
-            <GoogleCalendarConnectButton />
-        </section>
+        <div className="space-y-6">
+            <PageHeading title="Sign in" />
+            <Section aria-label="Sign in">
+                <GoogleSignInButton />
+            </Section>
+        </div>
     )
 }
