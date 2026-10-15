@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check, Hourglass, LoaderCircle } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useGoogleCalendarStore } from '@/app/google-calendar-store'
 import { Button } from '@/components/ui/button'
 import { initializeGoogleCalendarAuthorization } from '@/lib/google-identity'
@@ -60,87 +61,77 @@ export function GoogleCalendarConnectButton() {
         }
     }
 
+    return (
+        <CalendarConnectDisplay
+            requestStatus={requestStatus}
+            initializationStatus={initialization.status}
+            tokenIsValid={tokenIsValid}
+            tokenHasEnoughLifetime={tokenHasEnoughLifetime}
+            connect={connect}
+        />
+    )
+}
+
+function CalendarConnectDisplay({ requestStatus, initializationStatus, tokenIsValid, tokenHasEnoughLifetime, connect }: {
+    requestStatus: 'idle' | 'pending' | 'failed'
+    initializationStatus: 'loading' | 'ready' | 'error'
+    tokenIsValid: boolean
+    tokenHasEnoughLifetime: boolean
+    connect?: () => void
+}) {
+    let text: string
+    let Icon: LucideIcon | undefined
+    let iconClassName = 'size-4 shrink-0'
+    let isBusy = false
+    let isActive = false
+    const disabled = initializationStatus !== 'ready' || requestStatus === 'pending'
+
     if (requestStatus === 'pending') {
-        // Token pending.
-        return (
-            <div className="w-80 max-w-full space-y-3" aria-busy>
-                <Button variant="outline" className="w-full" disabled>
-                    <LoaderCircle className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                    <span role="status">Requesting calendar access</span>
-                </Button>
-            </div>
-        )
+        text = 'Requesting calendar access'
+        Icon = LoaderCircle
+        iconClassName = 'size-4 shrink-0 animate-spin motion-reduce:animate-none'
+        isBusy = true
     } else if (requestStatus === 'failed') {
-        // Error obtaining the token.
-        return (
-            <div className="w-80 max-w-full space-y-3">
-                <Button
-                    variant="outline"
-                    className="w-full enabled:cursor-pointer enabled:hover:border-primary enabled:hover:bg-primary enabled:hover:text-primary-foreground"
-                    onClick={connect}
-                    disabled={initialization.status !== 'ready'}
-                >
-                    <span role="status">Retry requesting calendar access</span>
-                </Button>
-            </div>
-        )
+        text = 'Retry requesting calendar access'
     } else if (tokenHasEnoughLifetime) {
         // Active access, including while the client initializes in the background.
+        text = 'Google Calendar access active'
+        Icon = Check
+        isActive = true
+    } else if (tokenIsValid) {
+        text = 'Renew calendar access'
+        Icon = Hourglass
+    } else if (initializationStatus === 'loading') {
+        text = 'Preparing calendar access'
+        Icon = LoaderCircle
+        iconClassName = 'size-4 shrink-0 animate-spin motion-reduce:animate-none'
+        isBusy = true
+    } else if (initializationStatus === 'error') {
+        text = 'Calendar unavailable'
+    } else {
+        text = 'Request calendar access'
+    }
+
+    if (isActive) {
         return (
             <div className="w-80 max-w-full space-y-3">
-                <div
-                    role="status"
-                    className="flex min-h-10 items-center justify-center gap-2 border border-emerald-600/40 px-3 text-sm text-emerald-700 dark:text-emerald-400"
-                >
-                    <Check className="size-4 shrink-0" aria-hidden="true" />
-                    <span>Google Calendar access active</span>
+                <div className="flex min-h-10 items-center justify-center gap-2 border border-emerald-600/40 px-3 text-sm text-emerald-700 dark:text-emerald-400">
+                    {Icon && <Icon className={iconClassName} aria-hidden="true" />}
+                    <span role="status">{text}</span>
                 </div>
             </div>
         )
-    } else if (tokenIsValid) {
-        // Token about to expire: valid, but within the renewal window.
-        return (
-            <div className="w-80 max-w-full space-y-3">
-                <Button
-                    variant="outline"
-                    className="w-full enabled:cursor-pointer enabled:hover:border-primary enabled:hover:bg-primary enabled:hover:text-primary-foreground"
-                    onClick={connect}
-                    disabled={initialization.status !== 'ready'}
-                >
-                    <Hourglass className="size-4 shrink-0" aria-hidden="true" />
-                    <span role="status">Renew calendar access</span>
-                </Button>
-            </div>
-        )
-    } else if (initialization.status === 'loading') {
-        // Initialising without a valid token.
-        return (
-            <div className="w-80 max-w-full space-y-3" aria-busy>
-                <Button variant="outline" className="w-full" disabled>
-                    <LoaderCircle className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                    <span role="status">Preparing calendar access</span>
-                </Button>
-            </div>
-        )
-    } else if (initialization.status === 'error') {
-        // Initialisation error without a valid token.
-        return (
-            <div className="w-80 max-w-full space-y-3">
-                <Button variant="outline" className="w-full" disabled>
-                    <span role="status">Calendar unavailable</span>
-                </Button>
-            </div>
-        )
     } else {
-        // No valid token: either expired or never obtained; the client is ready.
         return (
-            <div className="w-80 max-w-full space-y-3">
+            <div className="w-80 max-w-full space-y-3" aria-busy={isBusy || undefined}>
                 <Button
                     variant="outline"
                     className="w-full enabled:cursor-pointer enabled:hover:border-primary enabled:hover:bg-primary enabled:hover:text-primary-foreground"
                     onClick={connect}
+                    disabled={disabled}
                 >
-                    <span role="status">Request calendar access</span>
+                    {Icon && <Icon className={iconClassName} aria-hidden="true" />}
+                    <span role="status">{text}</span>
                 </Button>
             </div>
         )
