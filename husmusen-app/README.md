@@ -19,7 +19,7 @@ For local development, use your own dev client ID and register the local origin,
 
 ### Vercel
 
-`vercel.json` rewrites incoming paths to `index.html` so TanStack Router can handle direct visits and refreshes on routes such as `/tos`, `/login`, and `/demo`.
+`vercel.json` rewrites incoming paths to `index.html` so TanStack Router can handle direct visits and refreshes on routes such as `/tos` and `/login`.
 
 Set the Vercel project's Root Directory to `husmusen-app`. In Project Settings → Environment Variables, add `VITE_GOOGLE_CLIENT_ID` with the Google test client's ID. 
 
