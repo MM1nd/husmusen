@@ -13,7 +13,7 @@ type GoogleCalendarState = {
     calendarConnectionStarted: () => void
     calendarConnectionSucceeded: (authorization: CalendarAuthorization) => void
     calendarConnectionFailed: () => void
-    setAccountEmail: (accountEmail: string) => void
+    setAccountEmail: (accountEmail: string | null) => void
 }
 
 export const useGoogleCalendarStore = create<GoogleCalendarState>()((set) => ({

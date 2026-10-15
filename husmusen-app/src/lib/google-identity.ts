@@ -1,9 +1,12 @@
 import { toast } from 'sonner'
 import { useGoogleCalendarStore } from '@/app/google-calendar-store'
+import { queryOptions } from '@tanstack/react-query'
+import { queryClient } from '@/lib/query-client'
 
 const googleServicesLoadToastId = 'google-services-load'
 const calendarScope = 'https://www.googleapis.com/auth/calendar.readonly'
 const emailScope = 'https://www.googleapis.com/auth/userinfo.email'
+const googleUserInfoEndpoint = 'https://www.googleapis.com/oauth2/v2/userinfo'
 const authorizationErrorId = 'google-calendar-authorization'
 
 type GoogleIdentity = {
@@ -156,32 +159,46 @@ export function initializeGoogleCalendarAuthorization(): Promise<CalendarTokenCl
     return calendarTokenClientPromise
 }
 
+export function googleAccountEmailQueryOptions(accessToken: string) {
+    return queryOptions({
+        queryKey: [googleUserInfoEndpoint, accessToken],
+        staleTime: Infinity,
+        retry: false,
+        queryFn: async () => {
+            const response = await fetch(googleUserInfoEndpoint, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            })
+            if (!response.ok) {
+                throw new Error(`Could not retrieve the Google account email (HTTP ${response.status}).`)
+            }
+
+            const user: { email?: unknown } = await response.json()
+            if (typeof user.email !== 'string' || !user.email.trim()) {
+                throw new Error('Google returned a missing or invalid account email.')
+            }
+
+            return user.email
+        },
+    })
+}
+
 async function rememberGoogleAccountEmail(accessToken: string): Promise<void> {
     try {
-        const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-        })
-        if (!response.ok) {
-            const message = `Could not retrieve the Google account email (HTTP ${response.status}).`
-            console.warn(message)
-            toast.warning(message)
-            return
-        }
-        const user: { email?: unknown } = await response.json()
-        if (typeof user.email !== 'string' || !user.email.trim()) {
-            const message = 'Google returned a missing or invalid account email.'
-            console.warn(message)
-            toast.warning(message)
-            return
-        }
+        const email = await queryClient.query(googleAccountEmailQueryOptions(accessToken))
 
         // A delayed lookup must not overwrite the email for a newer authorization.
         const store = useGoogleCalendarStore.getState()
         if (store.authorization?.accessToken === accessToken) {
-            store.setAccountEmail(user.email)
+            store.setAccountEmail(email)
         }
     } catch (error) {
-        const message = 'Could not request or read the Google account email response.'
+        const store = useGoogleCalendarStore.getState()
+        if (store.authorization?.accessToken !== accessToken) return
+
+        store.setAccountEmail(null)
+
+        const message = error instanceof Error
+            ? error.message : 'Could not request or read the Google account email response.'
         console.warn(message, error)
         toast.warning(message)
         return
