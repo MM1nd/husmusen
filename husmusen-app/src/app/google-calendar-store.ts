@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export type CalendarAuthorization = {
     accessToken: string
@@ -16,7 +17,7 @@ type GoogleCalendarState = {
     setAccountEmail: (accountEmail: string | null) => void
 }
 
-export const useGoogleCalendarStore = create<GoogleCalendarState>()((set) => ({
+export const useGoogleCalendarStore = create<GoogleCalendarState>()(persist((set) => ({
     requestStatus: 'idle',
     authorization: null,
     accountEmail: null,
@@ -27,4 +28,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarState>()((set) => ({
     }),
     calendarConnectionFailed: () => set({ requestStatus: 'failed' }),
     setAccountEmail: (accountEmail) => set({ accountEmail }),
+}), {
+    name: 'husmusen-google-calendar',
+    partialize: (state) => ({ accountEmail: state.accountEmail }),
 }))

@@ -26,7 +26,7 @@ For backend authentication, the browser sends a Google ID token to the Pi. The G
 
 An established session does not require contacting Google for every request. If the session needs renewal, synchronization waits for Google reauthentication. Local household work remains available on an enrolled device.
 
-Initial Google Calendar integration is read-only and fetched directly by the browser with separate Calendar authorization. Google Calendar and all other Google-sourced data must never be persisted in PouchDB or another offline cache. Results may be held in memory while the app is open. Offline household editing does not extend to Google Calendar events.
+Initial Google Calendar integration is read-only and fetched directly by the browser with separate Calendar authorization. Only Google-sourced data covered by scopes Google classifies as non-sensitive may be persisted, and only locally on the user's device, never on the household server or through synchronization. Data covered by sensitive or restricted scopes must remain in memory while the app is open. Offline household editing does not extend to Google Calendar events.
 
 Google sign-in alone does not establish new household membership or authorize Calendar access. An existing household member does not need the invite code again. Signing out of Husmusen does not sign the user out of Google.
 

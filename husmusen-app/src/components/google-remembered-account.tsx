@@ -1,6 +1,6 @@
 import { useGoogleCalendarStore } from '@/app/google-calendar-store'
 import { useQuery } from '@tanstack/react-query'
-import { Check, LoaderCircle, X } from 'lucide-react'
+import { Check, LoaderCircle, UserRound, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { googleAccountEmailQueryOptions } from '@/lib/google-identity'
 
@@ -55,6 +55,10 @@ function RememberedAccountDisplay({ accountEmail, isBusy = false, isSuccess = fa
             Icon = Check
             iconClassName = 'size-4 text-emerald-700 dark:text-emerald-400'
             iconDescription = 'Google account email lookup succeeded.'
+        } else {
+            Icon = UserRound
+            iconClassName = 'size-4'
+            iconDescription = 'Previously remembered Google account.'
         }
     } else if (isBusy) {
         text = 'Looking up Google account email...'
