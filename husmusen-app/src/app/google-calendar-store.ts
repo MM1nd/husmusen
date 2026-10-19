@@ -40,5 +40,8 @@ export const useGoogleCalendarStore = create<GoogleCalendarState>()(persist((set
     setSelectedCalendars: (selectedCalendars) => set({ selectedCalendars }),
 }), {
     name: 'husmusen-google-calendar',
-    partialize: (state) => ({ accountEmail: state.accountEmail }),
+    partialize: (state) => ({
+        accountEmail: state.accountEmail,
+        selectedCalendars: state.selectedCalendars,
+    }),
 }))
