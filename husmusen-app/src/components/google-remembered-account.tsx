@@ -1,7 +1,7 @@
 import { useGoogleCalendarStore } from '@/app/google-calendar-store'
 import { useQuery } from '@tanstack/react-query'
-import { Check, LoaderCircle, UserRound, X } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { StatusLine } from '@/components/status-line'
+import type { StatusLineStatus } from '@/components/status-line'
 import { googleAccountEmailQueryOptions } from '@/lib/google-identity'
 
 export function GoogleRememberedAccount() {
@@ -40,53 +40,20 @@ function RememberedAccountDisplay({ accountEmail, isBusy = false, isSuccess = fa
     isError?: boolean
 }) {
     let text: string
-    let Icon: LucideIcon | undefined
-    let iconClassName: string | undefined
-    let iconDescription: string | undefined
-    let showError = false
+    let status: StatusLineStatus
 
-    if (accountEmail) {
-        text = `Remembered Google account: ${accountEmail}`
-        if (isBusy) {
-            Icon = LoaderCircle
-            iconClassName = 'size-4 animate-spin motion-reduce:animate-none'
-            iconDescription = 'Looking up Google account email.'
-        } else if (isSuccess) {
-            Icon = Check
-            iconClassName = 'size-4 text-emerald-700 dark:text-emerald-400'
-            iconDescription = 'Google account email lookup succeeded.'
-        } else {
-            Icon = UserRound
-            iconClassName = 'size-4'
-            iconDescription = 'Previously remembered Google account.'
-        }
-    } else if (isBusy) {
+    if (isBusy) {
+        status = 'loading'
         text = 'Looking up Google account email...'
-        Icon = LoaderCircle
-        iconClassName = 'size-4 animate-spin motion-reduce:animate-none'
-    } else if (isError) {
-        text = 'Google account email lookup failed.'
-        showError = true
+    } else if (accountEmail) {
+        status = isSuccess ? 'success' : 'neutral'
+        text = `Remembered Google account: ${accountEmail}`
     } else {
-        text = 'No Google account remembered.'
-        Icon = X
-        iconClassName = 'size-4 text-destructive'
+        status = 'error'
+        text = isError ? 'Google account email lookup failed.' : 'No Google account remembered.'
     }
 
     return (
-        <p className={`flex items-center gap-2 text-sm ${showError ? 'text-destructive' : 'text-muted-foreground'}`}>
-            <span className="size-4 shrink-0">
-                {Icon && (
-                    <>
-                        <Icon
-                            className={iconClassName}
-                            aria-hidden="true"
-                        />
-                        {iconDescription && <span className="sr-only">{iconDescription}</span>}
-                    </>
-                )}
-            </span>
-            <span>{text}</span>
-        </p>
+        <StatusLine status={status}>{text}</StatusLine>
     )
 }

@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo } from 'react'
-import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { CalendarDays, Check, Circle, LoaderCircle, X } from 'lucide-react'
+import { Check, Circle, LoaderCircle, X } from 'lucide-react'
 import { useGoogleCalendarStore } from '@/app/google-calendar-store'
+import { StatusLine } from '@/components/status-line'
+import type { StatusLineStatus } from '@/components/status-line'
 import {
     Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent,
     ComboboxEmpty, ComboboxItem, ComboboxList, ComboboxTrigger, ComboboxValue,
@@ -51,54 +52,35 @@ function CalendarAvailabilityIcon({ id, availableCalendarsById, isBusy, canMarkM
     )
 }
 
-function CalendarStatusLine({ inputId, isAuthorized, hasSelection, isBusy, isPaused, isError, hasData }: {
-    inputId: string
+function CalendarStatusLine({ isAuthorized, hasSelection, isBusy, isError, hasData }: {
     isAuthorized: boolean
     hasSelection: boolean
     isBusy: boolean
-    isPaused: boolean
     isError: boolean
     hasData: boolean
 }) {
-    let caption: string
-    let Icon = CalendarDays
-    let iconClassName = 'size-4'
-
-    if (isAuthorized) {
-        if (isBusy) {
-            Icon = LoaderCircle
-            iconClassName = 'size-4 animate-spin motion-reduce:animate-none'
-        } else if (isError) {
-            Icon = X
-            iconClassName = 'size-4 text-destructive'
-        } else if (hasData) {
-            Icon = Check
-            iconClassName = 'size-4 text-emerald-700 dark:text-emerald-400'
-        }
-
-        if (isPaused) caption = 'Waiting for a connection…'
-        else if (isBusy) caption = 'Loading calendars…'
-        else if (isError) caption = 'Could not load calendars. Reload the page to try again.'
-        else caption = 'Calendars to display:'
+    let status: StatusLineStatus
+    if (isBusy) {
+        status = 'loading'
+    } else if (!isAuthorized || isError) {
+        status = 'error'
+    } else if (hasData) {
+        status = 'success'
     } else {
-        if (hasSelection) {
-            caption = 'Connect Google Calendar to check saved selections and choose calendars to display.'
-        } else {
-            caption = 'Connect Google Calendar to choose calendars to display.'
-        }
-        Icon = X
-        iconClassName = 'size-4 text-destructive'
+        status = 'neutral'
     }
 
+    let caption: string
+    if (!isAuthorized) {
+        caption = hasSelection
+            ? 'Connect Google Calendar to check saved selections and choose calendars to display.'
+            : 'Connect Google Calendar to choose calendars to display.'
+    } else if (isBusy) caption = 'Loading calendars…'
+    else if (isError) caption = 'Could not load calendars. Reload the page to try again.'
+    else caption = 'Calendars to display:'
+
     return (
-        <ComboboxPrimitive.Status>
-            <label htmlFor={inputId} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="size-4 shrink-0">
-                    <Icon className={iconClassName} aria-hidden="true" />
-                </span>
-                <span>{caption}</span>
-            </label>
-        </ComboboxPrimitive.Status>
+        <StatusLine status={status}>{caption}</StatusLine>
     )
 }
 
@@ -140,15 +122,15 @@ export function GoogleCalendarList() {
 
     return (
         <div className="max-w-md space-y-3">
-            <CalendarStatusLine
-                inputId={inputId}
-                isAuthorized={authorization !== null}
-                hasSelection={selectedCalendars.length > 0}
-                isBusy={isBusy}
-                isPaused={calendarsQuery.isPaused}
-                isError={calendarsQuery.isError}
-                hasData={calendarsQuery.data !== undefined}
-            />
+            <label htmlFor={inputId} className="block">
+                <CalendarStatusLine
+                    isAuthorized={authorization !== null}
+                    hasSelection={selectedCalendars.length > 0}
+                    isBusy={isBusy}
+                    isError={calendarsQuery.isError}
+                    hasData={calendarsQuery.data !== undefined}
+                />
+            </label>
             <Combobox
                 multiple
                 disabled={!authorization || calendarsQuery.isError}

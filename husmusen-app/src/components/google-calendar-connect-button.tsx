@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Check, Hourglass, LoaderCircle, X } from 'lucide-react'
+import { Hourglass, LoaderCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useGoogleCalendarStore } from '@/app/google-calendar-store'
+import { StatusLine } from '@/components/status-line'
 import { Button } from '@/components/ui/button'
 import { initializeGoogleCalendarAuthorization } from '@/lib/google-identity'
 import type { CalendarTokenClient } from '@/lib/google-identity'
@@ -68,27 +69,11 @@ export function GoogleCalendarConnectButton() {
                 expiresInMs={expiresInMs}
                 connect={connect}
             />
-            <CalendarAccessStatus tokenIsValid={tokenIsValid} />
+            <StatusLine status={tokenIsValid ? 'success' : 'error'}>
+                Google Calendar access {tokenIsValid ? 'active' : 'inactive'}
+            </StatusLine>
         </div>
     )
-}
-
-function CalendarAccessStatus({ tokenIsValid }: { tokenIsValid: boolean }) {
-    if (tokenIsValid) {
-        return (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-                <Check className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
-                <span>Google Calendar access active</span>
-            </p>
-        )
-    } else {
-        return (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-                <X className="size-4 shrink-0 text-destructive" aria-hidden="true" />
-                <span>Google Calendar access inactive</span>
-            </p>
-        )
-    }
 }
 
 function CalendarConnectDisplay({ requestStatus, initializationStatus, tokenIsValid, tokenHasEnoughLifetime, expiresInMs, connect }: {
